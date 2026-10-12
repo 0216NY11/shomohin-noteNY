@@ -1,0 +1,10 @@
+{
+  "name": "消耗品ノート",
+  "short_name": "消耗品ノート",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f6f8f6",
+  "theme_color": "#176b52",
+  "lang": "ja",
+  "icons": []
+}

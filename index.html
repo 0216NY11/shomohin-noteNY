@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#176b52">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="消耗品ノート">
+<link rel="manifest" href="manifest.json">
+<title>消耗品ノート</title>
+<style>
+:root{--green:#176b52;--pale:#e8f4ee;--ink:#17251f;--muted:#68766f;--line:#dce6df;--bg:#f6f8f6;--red:#b63d36}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+header{background:var(--green);color:white;padding:calc(18px + env(safe-area-inset-top)) 18px 22px;border-radius:0 0 22px 22px}
+h1{font-size:24px;margin:0 0 5px}header p{margin:0;opacity:.88;font-size:13px}.wrap{max-width:680px;margin:auto;padding:14px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:-8px}.stat,.panel,.item{background:white;border:1px solid var(--line);border-radius:16px;padding:14px}.stat small{color:var(--muted)}.stat strong{display:block;font-size:23px;margin-top:5px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}.btn{border:0;border-radius:12px;padding:12px 14px;font:inherit;font-weight:650;background:var(--green);color:white;cursor:pointer}.btn.secondary{background:var(--pale);color:var(--green)}.btn.danger{background:#fff0ef;color:var(--red)}.btn.small{padding:8px 10px;font-size:13px}
+.panel{margin:12px 0}.panel h2{font-size:17px;margin:0 0 12px}.field{margin:10px 0}.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}input,select,textarea{width:100%;border:1px solid #cbd8cf;border-radius:10px;padding:11px 12px;background:white;color:var(--ink);font:inherit;min-height:43px}textarea{min-height:72px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hidden{display:none!important}.toolbar{display:flex;gap:8px;margin:12px 0}.toolbar input{flex:1}.list{display:grid;gap:9px}.item-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.item h3{font-size:16px;margin:0 0 4px}.price{font-weight:750;font-size:19px;white-space:nowrap}.muted{color:var(--muted);font-size:12px}.tag{display:inline-block;background:var(--pale);color:var(--green);font-size:11px;padding:3px 7px;border-radius:999px;margin-top:5px}.item-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}.empty{text-align:center;color:var(--muted);padding:24px 10px}.subhead{display:flex;align-items:center;justify-content:space-between;gap:8px}.subhead h2{margin:0}.foot{color:var(--muted);font-size:12px;line-height:1.7;padding:12px 2px}.notice{background:#fff8df;border:1px solid #f0df9b;border-radius:12px;padding:11px;font-size:13px;line-height:1.6;margin:10px 0}
+dialog{border:0;border-radius:18px;width:min(94vw,560px);max-height:90vh;overflow:auto;padding:0;box-shadow:0 12px 60px #0003}dialog::backdrop{background:#17251f88}.dlghead{padding:16px 18px;background:var(--pale);display:flex;justify-content:space-between;align-items:center}.dlgbody{padding:16px}.close{border:0;background:transparent;font-size:23px}
+</style>
+</head>
+<body>
+<header><h1>消耗品ノート</h1><p>買ったもの・価格・購入日を、かんたん記録。</p></header>
+<main class="wrap">
+<div class="stats"><div class="stat"><small>記録した品目</small><strong id="statItems">0</strong></div><div class="stat"><small>購入記録の合計</small><strong id="statPurchases">0</strong></div></div>
+<div class="actions"><button class="btn" id="addBtn">＋ 購入を記録</button><button class="btn secondary" id="backupBtn">⇧ バックアップ</button></div>
+<section class="panel"><div class="subhead"><h2>購入したもの</h2><button class="btn small secondary" id="historyBtn">履歴一覧</button></div>
+<div class="toolbar"><input id="search" placeholder="品名・店名で検索" aria-label="検索"><select id="categoryFilter" aria-label="カテゴリ"><option value="">すべてのカテゴリ</option><option>日用品</option><option>洗剤・掃除</option><option>衛生用品</option><option>食品</option><option>その他</option></select></div>
+<div id="items" class="list"></div></section>
+<section class="panel"><h2>バックアップから復元</h2><p class="muted">以前に書き出したJSONファイルを選ぶと、記録を復元できます。復元時は現在のデータに追加・統合します。</p><input type="file" id="restoreFile" accept=".json,application/json"></section>
+<p class="foot">データはこのブラウザ内に保存されます。Safariの履歴やWebサイトデータを消すと失われる可能性があるため、定期的にバックアップしてください。機種変更時はバックアップファイルを新しいiPhoneへ移して復元します。</p>
+</main>
+<dialog id="entryDialog"><div class="dlghead"><strong id="dialogTitle">購入を記録</strong><button class="close" id="closeDialog" aria-label="閉じる">×</button></div><div class="dlgbody">
+<form id="entryForm">
+<input type="hidden" id="editId">
+<div class="field"><label for="name">品名 *</label><input id="name" required maxlength="100" placeholder="例：洗濯洗剤 詰め替え"></div>
+<div class="row"><div class="field"><label for="price">購入価格（円）*</label><input id="price" type="number" min="0" step="1" required placeholder="398"></div><div class="field"><label for="date">購入日 *</label><input id="date" type="date" required></div></div>
+<div class="row"><div class="field"><label for="category">カテゴリ</label><select id="category"><option>日用品</option><option>洗剤・掃除</option><option>衛生用品</option><option>食品</option><option>その他</option></select></div><div class="field"><label for="store">購入した店</label><input id="store" maxlength="100" placeholder="例：近所のドラッグストア"></div></div>
+<div class="field"><label for="memo">メモ（容量・個数など）</label><textarea id="memo" maxlength="500" placeholder="例：詰め替え用 900mL"></textarea></div>
+<div class="actions"><button class="btn" type="submit">保存する</button><button class="btn secondary" type="button" id="cancelDialog">キャンセル</button></div>
+</form></div></dialog>
+<dialog id="historyDialog"><div class="dlghead"><strong id="historyTitle">購入履歴</strong><button class="close" id="closeHistory" aria-label="閉じる">×</button></div><div class="dlgbody" id="historyBody"></div></dialog>
+<script>
+const KEY='shomohin-note-v1';
+let records=[];
+const $=id=>document.getElementById(id);
+const yen=n=>new Intl.NumberFormat('ja-JP',{style:'currency',currency:'JPY',maximumFractionDigits:0}).format(Number(n)||0);
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function load(){try{records=JSON.parse(localStorage.getItem(KEY)||'[]');if(!Array.isArray(records))records=[]}catch{records=[]}}
+function save(){localStorage.setItem(KEY,JSON.stringify(records));render()}
+function latestFor(name){return records.filter(r=>r.name.toLowerCase()===name.toLowerCase()).sort((a,b)=>b.date.localeCompare(a.date)||b.updatedAt-a.updatedAt)[0]}
+function render(){
+$('statItems').textContent=new Set(records.map(r=>r.name.toLowerCase())).size;
+$('statPurchases').textContent=records.length;
+const q=$('search').value.trim().toLowerCase(),cat=$('categoryFilter').value;
+const groups=new Map();
+records.forEach(r=>{if((!q||(r.name+' '+r.store+' '+r.memo).toLowerCase().includes(q))&&(!cat||r.category===cat)){let k=r.name.toLowerCase();if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}});
+const entries=[...groups.values()].map(a=>a.sort((x,y)=>y.date.localeCompare(x.date))[0]).sort((a,b)=>b.date.localeCompare(a.date));
+$('items').innerHTML=entries.length?entries.map(r=>{const hist=records.filter(x=>x.name.toLowerCase()===r.name.toLowerCase()).sort((a,b)=>b.date.localeCompare(a.date));const prev=hist[1];const diff=prev?Number(r.price)-Number(prev.price):null;return `<article class="item"><div class="item-top"><div><h3>${safe(r.name)}</h3><div class="muted">${safe(r.date)}${r.store?' · '+safe(r.store):''}</div><span class="tag">${safe(r.category||'その他')}</span></div><div class="price">${yen(r.price)}</div></div>${r.memo?`<p class="muted">${safe(r.memo)}</p>`:''}${diff!==null?`<p class="muted">前回比：<strong style="color:${diff>0?'var(--red)':diff<0?'var(--green)':'inherit'}">${diff>0?'+':''}${yen(diff)}</strong>（${safe(prev.date)}）</p>`:''}<div class="item-actions"><button class="btn small secondary" data-action="history" data-name="${safe(r.name)}">履歴を見る (${hist.length})</button><button class="btn small secondary" data-action="edit" data-id="${safe(r.id)}">編集</button><button class="btn small" data-action="repurchase" data-id="${safe(r.id)}">再購入を記録</button></div></article>`}).join(''):'<div class="empty">まだ記録がありません。<br>「購入を記録」から最初の1件を登録しましょう。</div>';
+}
+function openForm(r=null,repurchase=false){
+$('entryForm').reset();$('editId').value='';$('date').value=today();$('dialogTitle').textContent=repurchase?'再購入を記録':r?'記録を編集':'購入を記録';
+if(r){$('name').value=r.name;$('price').value=repurchase?'':r.price;$('date').value=repurchase?today():r.date;$('category').value=r.category||'日用品';$('store').value=repurchase?'':r.store||'';$('memo').value=r.memo||'';if(!repurchase)$('editId').value=r.id}
+$('entryDialog').showModal();
+}
+$('addBtn').onclick=()=>openForm();
+$('closeDialog').onclick=$('cancelDialog').onclick=()=>$('entryDialog').close();
+$('entryForm').onsubmit=e=>{e.preventDefault();const id=$('editId').value;const item={id:id||crypto.randomUUID(),name:$('name').value.trim(),price:Number($('price').value),date:$('date').value,category:$('category').value,store:$('store').value.trim(),memo:$('memo').value.trim(),updatedAt:Date.now()};if(id){records=records.map(r=>r.id===id?item:r)}else records.push(item);save();$('entryDialog').close()};
+$('search').oninput=render;$('categoryFilter').onchange=render;
+$('items').onclick=e=>{const b=e.target.closest('button[data-action]');if(!b)return;const r=records.find(x=>x.id===b.dataset.id);if(b.dataset.action==='edit'&&r)openForm(r);if(b.dataset.action==='repurchase'&&r)openForm(r,true);if(b.dataset.action==='history')showHistory(b.dataset.name)};
+function showHistory(name){const hist=records.filter(r=>r.name.toLowerCase()===name.toLowerCase()).sort((a,b)=>b.date.localeCompare(a.date));$('historyTitle').textContent=name+' の購入履歴';$('historyBody').innerHTML=hist.map(r=>`<article class="item"><div class="item-top"><div><strong>${safe(r.date)}</strong><div class="muted">${safe(r.store||'店名未入力')} · ${safe(r.category||'その他')}</div>${r.memo?`<div class="muted">${safe(r.memo)}</div>`:''}</div><div class="price">${yen(r.price)}</div></div><div class="item-actions"><button class="btn small secondary" data-history-edit="${safe(r.id)}">編集</button><button class="btn small danger" data-history-delete="${safe(r.id)}">削除</button></div></article>`).join('')||'<p class="empty">履歴がありません</p>';$('historyDialog').showModal()}
+$('historyBody').onclick=e=>{const ed=e.target.closest('[data-history-edit]'),del=e.target.closest('[data-history-delete]');if(ed){const r=records.find(x=>x.id===ed.dataset.historyEdit);$('historyDialog').close();if(r)openForm(r)}if(del){const r=records.find(x=>x.id===del.dataset.historyDelete);if(r&&confirm(`${r.name}（${r.date}）の記録を削除しますか？`)){records=records.filter(x=>x.id!==r.id);save();showHistory(r.name)}}};
+$('closeHistory').onclick=()=>$('historyDialog').close();$('historyBtn').onclick=()=>showAllHistory();
+function showAllHistory(){const hist=[...records].sort((a,b)=>b.date.localeCompare(a.date));$('historyTitle').textContent='すべての購入履歴';$('historyBody').innerHTML=hist.map(r=>`<article class="item"><div class="item-top"><div><strong>${safe(r.name)}</strong><div class="muted">${safe(r.date)} · ${safe(r.store||'店名未入力')}</div></div><div class="price">${yen(r.price)}</div></div><div class="item-actions"><button class="btn small secondary" data-history-edit="${safe(r.id)}">編集</button><button class="btn small danger" data-history-delete="${safe(r.id)}">削除</button></div></article>`).join('')||'<p class="empty">まだ記録がありません</p>';$('historyDialog').showModal()}
+function exportBackup(){const data={app:'消耗品ノート',version:1,exportedAt:new Date().toISOString(),records};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`消耗品ノート_バックアップ_${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+$('backupBtn').onclick=exportBackup;
+$('restoreFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const parsed=JSON.parse(await f.text());const incoming=Array.isArray(parsed)?parsed:parsed.records;if(!Array.isArray(incoming))throw new Error('形式が違います');const valid=incoming.filter(r=>r&&typeof r.name==='string'&&Number.isFinite(Number(r.price))&&r.date);if(!valid.length&&incoming.length)throw new Error('有効な記録が見つかりません');const ids=new Set(records.map(r=>r.id));let added=0;valid.forEach(r=>{let item={...r,id:r.id||crypto.randomUUID(),updatedAt:r.updatedAt||Date.now()};if(ids.has(item.id)){const existing=records.find(x=>x.id===item.id);if(existing&&JSON.stringify(existing)!==JSON.stringify(item)){item.id=crypto.randomUUID();records.push(item);added++}}else{records.push(item);ids.add(item.id);added++}});save();alert(`${added}件の記録を取り込みました。`)}catch(err){alert('復元できませんでした。バックアップ用JSONファイルを確認してください。')}finally{e.target.value=''}};
+if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+load();render();
+</script>
+</body></html>
